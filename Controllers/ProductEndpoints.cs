@@ -1,5 +1,7 @@
 namespace academy_API.Controllers;
 
+using academy_API.Services.Contracts;
+
 public static class ProductEndpoints
 {
     public static IEndpointRouteBuilder MapProductEndpoints(this IEndpointRouteBuilder app)
@@ -8,31 +10,31 @@ public static class ProductEndpoints
             .WithTags("Products")
             .WithOpenApi();
 
-        group.MapGet("/", async (Services.IProductService service, CancellationToken cancellationToken) =>
+        group.MapGet("/", async (IProductService service, CancellationToken cancellationToken) =>
         {
             var products = await service.GetAllAsync(cancellationToken);
             return Results.Ok(products);
         });
 
-        group.MapGet("/{id:int}", async (int id, Services.IProductService service, CancellationToken cancellationToken) =>
+        group.MapGet("/{id:int}", async (int id, IProductService service, CancellationToken cancellationToken) =>
         {
             var product = await service.GetByIdAsync(id, cancellationToken);
             return product is null ? Results.NotFound() : Results.Ok(product);
         });
 
-        group.MapPost("/", async (DTOs.CreateProductRequest request, Services.IProductService service, CancellationToken cancellationToken) =>
+        group.MapPost("/", async (DTOs.CreateProductRequest request, IProductService service, CancellationToken cancellationToken) =>
         {
             var created = await service.CreateAsync(request, cancellationToken);
             return Results.Created($"/api/products/{created.Id}", created);
         });
 
-        group.MapPut("/{id:int}", async (int id, DTOs.UpdateProductRequest request, Services.IProductService service, CancellationToken cancellationToken) =>
+        group.MapPut("/{id:int}", async (int id, DTOs.UpdateProductRequest request, IProductService service, CancellationToken cancellationToken) =>
         {
             var updated = await service.UpdateAsync(id, request, cancellationToken);
             return updated is null ? Results.NotFound() : Results.Ok(updated);
         });
 
-        group.MapDelete("/{id:int}", async (int id, Services.IProductService service, CancellationToken cancellationToken) =>
+        group.MapDelete("/{id:int}", async (int id, IProductService service, CancellationToken cancellationToken) =>
         {
             var deleted = await service.DeleteAsync(id, cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();

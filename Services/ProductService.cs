@@ -1,3 +1,5 @@
+using academy_API.Services.Contracts;
+
 namespace academy_API.Services;
 
 public class ProductService(Repositories.IProductRepository repository) : IProductService

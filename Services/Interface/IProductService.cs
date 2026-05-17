@@ -1,4 +1,4 @@
-namespace academy_API.Services;
+namespace academy_API.Services.Contracts;
 
 public interface IProductService
 {

@@ -13,6 +13,7 @@ public class TutoringDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
+    public DbSet<PdpaConsent> PdpaConsents => Set<PdpaConsent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -66,6 +67,13 @@ public class TutoringDbContext : DbContext
             entity.Property(t => t.Specialization).HasMaxLength(255);
             entity.Property(t => t.Bio).HasMaxLength(2000);
             entity.Property(t => t.PhotoUrl).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<PdpaConsent>(entity =>
+        {
+            entity.HasIndex(e => e.UserId);
+            entity.Property(e => e.ConsentVersion).HasMaxLength(50);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
         });
     }
 }

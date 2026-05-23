@@ -25,25 +25,50 @@ public static class UserEndpoints
                 : Results.Ok(user);
         });
 
-        group.MapPost("/", async (IUserService userService, UserCreateRequest request, CancellationToken ct) =>
-        {
-            var user = new User
-            {
-                Email = request.Email,
-                Phone = request.Phone,
-                Role = request.Role,
-                LineUserId = request.LineUserId,
-                PasswordHash = request.PasswordHash,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            var created = await userService.CreateAsync(user, ct);
-            return Results.Created($"/api/users/{created.Id}", created);
-        });
+        group.MapPost("/register", RegisterUser)
+            .WithTags("Users")
+            .WithOpenApi()
+            .AllowAnonymous();
 
         return app;
     }
+
+    private static async Task<IResult> RegisterUser(
+        IUserService userService,
+        RegisterUserRequest request,
+        HttpContext httpContext,
+        CancellationToken ct)
+    {
+        var ipAddress = httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+
+        var userRequest = new UserCreateRequest
+        {
+            Email = request.Email,
+            Password = request.Password,
+            Phone = request.Phone,
+            Role = request.Role,
+            LineUserId = request.LineUserId,
+            AcceptPdpa = request.AcceptPdpa,
+            PdpaConsentVersion = request.PdpaConsentVersion
+        };
+
+        try
+        {
+            var created = await userService.CreateWithConsentAsync(userRequest, ipAddress, ct);
+            return Results.Created($"/api/users/{created.Id}", new { created.Id, created.Email, created.Role });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { Error = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { Error = ex.Message });
+        }
+        catch (DbUpdateException)
+        {
+            return Results.BadRequest(new { Error = "Failed to create user. Please try again." });
+        }
+    }
 }
-
-

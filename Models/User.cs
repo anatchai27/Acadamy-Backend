@@ -21,5 +21,18 @@ public class UserCreateRequest
     public string? Phone { get; set; }
     public UserRole Role { get; set; }
     public string? LineUserId { get; set; }
-    public string PasswordHash { get; set; } = null!;
+    public string Password { get; set; } = null!;
+    public bool AcceptPdpa { get; set; }
+    public string PdpaConsentVersion { get; set; } = "1.0";
 }
+public class RegisterUserRequest
+{
+    public string Email { get; set; } = null!;
+    public string Password { get; set; } = null!;
+    public string? Phone { get; set; }
+    public UserRole Role { get; set; } = UserRole.student;
+    public string? LineUserId { get; set; }
+    public bool AcceptPdpa { get; set; }
+    public string PdpaConsentVersion { get; set; } = "1.0";
+}
+

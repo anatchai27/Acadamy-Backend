@@ -1,4 +1,3 @@
-using academy_API.Models;
 using academy_API.Services.Contracts;
 
 namespace academy_API.Controllers;
@@ -11,18 +10,16 @@ public static class AuthEndpoints
             .WithTags("Authentication")
             .WithOpenApi();
 
-        group.MapPost("/login", async (LoginRequest request, IUserService userService, ITokenService tokenService, CancellationToken ct) =>
+        group.MapPost("/login", async (LoginRequest request, IUserService userService, CancellationToken ct) =>
         {
-            var users = await userService.GetAllAsync(ct);
-            var user = users.FirstOrDefault(u => u.Email == request.Email);
+            var result = await userService.LoginAsync(request.Email, request.Password, ct);
 
-            if (user is null || !tokenService.VerifyPassword(request.Password, user.PasswordHash))
+            if (result is null)
             {
                 return Results.Unauthorized();
             }
 
-            var token = tokenService.GenerateToken(user);
-            return Results.Ok(new LoginResponse(token, user.Id, user.Email, user.Role.ToString()));
+            return Results.Ok(new LoginResponse(result.Token, result.UserId, result.Email, result.Role));
         });
 
         return app;

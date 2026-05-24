@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using academy_API.Data;
 using academy_API.Models;
 using academy_API.Repositories;
@@ -107,5 +108,56 @@ public class UserService(
         {
             throw new InvalidOperationException("Email or phone number is already registered.");
         }
+    }
+
+    public async Task<UserLoginResult?> LoginAsync(string email, string password, CancellationToken ct = default)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
+
+        if (user is null || !_tokenService.VerifyPassword(password, user.PasswordHash))
+        {
+            return null;
+        }
+
+        var token = _tokenService.GenerateToken(user);
+
+        return new UserLoginResult(
+            Token: token,
+            UserId: user.Id,
+            Email: user.Email,
+            Role: user.Role.ToString()
+        );
+    }
+
+    public async Task<bool> ForgetPasswordAsync(string email, string resetLink, CancellationToken ct = default)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
+        if (user is null) return false;
+
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        user.ResetToken = _tokenService.HashPassword(token);
+        user.ResetTokenExpiry = DateTime.UtcNow.AddHours(1);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<bool> ResetPasswordAsync(string email, string token, string newPassword, CancellationToken ct = default)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
+        if (user is null || string.IsNullOrEmpty(user.ResetToken) || !user.ResetTokenExpiry.HasValue || user.ResetTokenExpiry < DateTime.UtcNow)
+            return false;
+
+        if (!_tokenService.VerifyPassword(token, user.ResetToken))
+            return false;
+
+        user.PasswordHash = _tokenService.HashPassword(newPassword);
+        user.ResetToken = null;
+        user.ResetTokenExpiry = null;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(ct);
+        return true;
     }
 }

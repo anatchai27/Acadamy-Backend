@@ -8,6 +8,8 @@ public class User
     public UserRole Role { get; set; }
     public string? LineUserId { get; set; }
     public string PasswordHash { get; set; } = null!;
+    public string? ResetToken { get; set; }
+    public DateTime? ResetTokenExpiry { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

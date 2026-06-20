@@ -12,6 +12,10 @@ public interface IUserService
     Task<UserLoginResult?> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<bool> ForgetPasswordAsync(string email, string resetLink, CancellationToken cancellationToken = default);
     Task<bool> ResetPasswordAsync(string email, string token, string newPassword, CancellationToken cancellationToken = default);
+    Task<CurrentUserResponse?> GetCurrentUserAsync(int userId, CancellationToken ct = default);
 }
 
 public record UserLoginResult(string Token, int UserId, string Email, string Role);
+public record CurrentUserResponse(string Status, CurrentUserData Data);
+public record CurrentUserData(int UserId, string Email, string? Phone, string Role, CurrentUserProfile Profile);
+public record CurrentUserProfile(string FullName, string? PhotoUrl, string? Subjects);

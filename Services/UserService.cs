@@ -160,4 +160,27 @@ public class UserService(
         await _context.SaveChangesAsync(ct);
         return true;
     }
+
+    public async Task<CurrentUserResponse?> GetCurrentUserAsync(int userId, CancellationToken ct = default)
+    {
+        var user = await _repository.GetByIdWithProfileAsync(userId, ct);
+        if (user is null) return null;
+
+        var profile = new CurrentUserProfile(
+            FullName: user.Teacher?.FullName ?? user.Email,
+            PhotoUrl: user.Teacher?.PhotoUrl,
+            Subjects: user.Teacher?.Specialization
+        );
+
+        return new CurrentUserResponse(
+            "success",
+            new CurrentUserData(
+                UserId: user.Id,
+                Email: user.Email,
+                Phone: user.Phone,
+                Role: user.Role.ToString(),
+                Profile: profile
+            )
+        );
+    }
 }

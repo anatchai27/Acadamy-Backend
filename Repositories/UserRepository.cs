@@ -23,6 +23,13 @@ public class UserRepository(TutoringDbContext context) : IUserRepository
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
+    public async Task<User?> GetByIdWithProfileAsync(int id, CancellationToken cancellationToken = default)
+    {
+        return await _context.Users
+            .Include(u => u.Teacher)
+            .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+    }
+
     public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
     {
         _context.Users.Add(user);

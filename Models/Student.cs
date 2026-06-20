@@ -11,7 +11,10 @@ public class Student
     public string? Grade { get; set; }
     public string? School { get; set; }
     public string? QrToken { get; set; }
+    public DateTime? QrTokenExpiry { get; set; }
     public string? PhotoUrl { get; set; }
     public string? MedicalInfo { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    public ICollection<Parent> Parents { get; set; } = new List<Parent>();
 }

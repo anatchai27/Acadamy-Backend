@@ -60,9 +60,26 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPdpaConsentRepository, PdpaConsentRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IStudentRepository, StudentRepository>();
+builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddSingleton<IDbConnectionValidator, DbConnectionValidator>();
+
+builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<ICourseRepository, CourseRepository>();
+builder.Services.AddScoped<ICourseService, CourseService>();
+builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+builder.Services.AddHttpClient<ILineNotificationService, LineNotificationService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.line.me/");
+    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {builder.Configuration["Line:ChannelAccessToken"]}");
+});
 
 // Register TutoringDbContext with TiDB Cloud connection
 var connectionString = builder.Configuration.GetConnectionString("TutoringDbConnection")
@@ -107,6 +124,10 @@ app.MapStudentEndpoints();
 app.MapTeacherEndpoints();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
+app.MapAttendanceEndpoints();
+app.MapCourseEndpoints();
+app.MapEnrollmentEndpoints();
+app.MapPaymentEndpoints();
 
 // Database connection test endpoint
 app.MapGet("/api/v1/test-connection", (IDbConnectionValidator validator) =>

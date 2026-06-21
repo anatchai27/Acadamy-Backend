@@ -1,5 +1,6 @@
 using academy_API.DTOs;
 using academy_API.Services;
+using academy_API.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace academy_API.Controllers;
@@ -10,16 +11,19 @@ public static class EnrollmentEndpoints
     {
         var group = app.MapGroup("/api/enrollments")
             .WithTags("Enrollments")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization();
 
         group.MapPost("/", async (
             EnrollStudentRequest request,
             IEnrollmentService service,
+            HttpContext httpContext,
             CancellationToken ct) =>
         {
             try
             {
-                var result = await service.EnrollAsync(request, ct);
+                var instituteId = httpContext.GetInstituteId();
+                var result = await service.EnrollAsync(request, instituteId, ct);
                 return Results.Created($"/api/enrollments/{result.Data.EnrollmentId}", result);
             }
             catch (EnrollmentValidationException ex)

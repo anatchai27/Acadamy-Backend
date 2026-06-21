@@ -64,7 +64,7 @@ public class UserService(
                     ConsentVersion = string.IsNullOrWhiteSpace(request.PdpaConsentVersion) ? "1.0" : request.PdpaConsentVersion,
                     IsAccepted = true,
                     IpAddress = ipAddress,
-                    ConsentedAt = DateTime.UtcNow
+                    AcceptedAt = DateTime.UtcNow
                 });
 
                 await _context.SaveChangesAsync(ct);
@@ -179,6 +179,7 @@ public class UserService(
                 Email: user.Email,
                 Phone: user.Phone,
                 Role: user.Role.ToString(),
+                InstituteId: user.InstituteId,
                 Profile: profile
             )
         );

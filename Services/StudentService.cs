@@ -9,12 +9,12 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
 {
     private readonly IStudentRepository _studentRepository = studentRepository;
 
-    public async Task<StudentListResponse> GetAllAsync(string? search, int page, int limit, CancellationToken ct = default)
+    public async Task<StudentListResponse> GetAllAsync(int? instituteId, string? search, int page, int limit, CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         limit = Math.Clamp(limit, 1, 100);
 
-        var (items, totalCount) = await _studentRepository.SearchAsync(search, page, limit, ct);
+        var (items, totalCount) = await _studentRepository.SearchAsync(instituteId, search, page, limit, ct);
 
         var totalPages = (int)Math.Ceiling((double)totalCount / limit);
 
@@ -32,23 +32,30 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
         );
     }
 
-    public async Task<StudentProfileResponse?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<StudentProfileResponse?> GetByIdAsync(int id, int? instituteId, CancellationToken ct = default)
     {
         var student = await _studentRepository.GetByIdWithParentsAsync(id, ct);
         return student is null ? null : MapToProfileResponse(student);
     }
 
-    public async Task<UpdateStudentResponse> UpdateAsync(int id, UpdateStudentRequest request, CancellationToken ct = default)
+    public async Task<UpdateStudentResponse> UpdateAsync(int id, int? instituteId, UpdateStudentRequest request, CancellationToken ct = default)
     {
-        var student = await _studentRepository.UpdateAsync(id, request, ct);
+        try
+        {
+            var student = await _studentRepository.UpdateAsync(id, instituteId, request, ct);
 
-        if (student is null)
-            throw new StudentValidationException("NOT_FOUND", "ไม่พบข้อมูลนักเรียน");
+            if (student is null)
+                throw new StudentValidationException("NOT_FOUND", "ไม่พบข้อมูลนักเรียน");
 
-        return new UpdateStudentResponse("success", "อัปเดตข้อมูลสำเร็จ");
+            return new UpdateStudentResponse("success", "อัปเดตข้อมูลสำเร็จ");
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "FORBIDDEN")
+        {
+            throw new StudentValidationException("FORBIDDEN", "Access denied: student belongs to a different institute.");
+        }
     }
 
-    public async Task<QrTokenResponse> GetQrTokenAsync(int id, CancellationToken ct = default)
+    public async Task<QrTokenResponse> GetQrTokenAsync(int id, int? instituteId, CancellationToken ct = default)
     {
         var student = await _studentRepository.RotateQrTokenAsync(id, ct);
 
@@ -60,7 +67,7 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
             new QrTokenData(
                 student.Id,
                 student.QrToken!,
-                student.QrTokenExpiry!.Value,
+                DateTime.UtcNow.AddSeconds(60),
                 60
             )
         );
@@ -68,6 +75,7 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
 
     public async Task<CreateStudentResponse> CreateAsync(
         CreateStudentRequest request,
+        int? instituteId,
         string? ipAddress,
         CancellationToken ct = default)
     {
@@ -75,6 +83,7 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
 
         var student = new Student
         {
+            InstituteId = instituteId,
             FullName = request.Student.FullName.Trim(),
             Nickname = request.Student.Nickname?.Trim(),
             Grade = request.Student.Grade?.Trim(),
@@ -99,7 +108,7 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
                 : request.Pdpa.ConsentVersion,
             IsAccepted = request.Pdpa.IsAccepted,
             IpAddress = ipAddress,
-            ConsentedAt = DateTime.UtcNow
+            AcceptedAt = DateTime.UtcNow
         };
 
         var created = await _studentRepository.CreateWithTransactionAsync(student, parents, pdpa, ct);

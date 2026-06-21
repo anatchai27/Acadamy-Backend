@@ -6,19 +6,19 @@ namespace academy_API.Repositories;
 
 public interface IPaymentRepository
 {
-    Task<Enrollment?> GetEnrollmentWithStudentAsync(int enrollmentId, CancellationToken ct = default);
+    Task<Enrollment?> GetEnrollmentWithStudentAsync(int enrollmentId, int? instituteId, CancellationToken ct = default);
     Task<string> GenerateInvoiceNoAsync(CancellationToken ct = default);
     Task<List<Parent>> GetParentsWithLineByStudentIdAsync(int studentId, CancellationToken ct = default);
     Task<Payment> CreatePaymentWithTransactionAsync(
         Payment payment, CancellationToken ct = default);
     Task<List<Payment>> GetPaymentsAsync(
-        DateTime? startDate, DateTime? endDate, string? method,
+        int? instituteId, DateTime? startDate, DateTime? endDate, string? method,
         int page, int limit, CancellationToken ct = default);
     Task<decimal> GetTotalAmountAsync(
-        DateTime? startDate, DateTime? endDate, string? method,
+        int? instituteId, DateTime? startDate, DateTime? endDate, string? method,
         CancellationToken ct = default);
     Task<int> GetPaymentCountAsync(
-        DateTime? startDate, DateTime? endDate, string? method,
+        int? instituteId, DateTime? startDate, DateTime? endDate, string? method,
         CancellationToken ct = default);
 }
 
@@ -26,12 +26,17 @@ public class PaymentRepository(TutoringDbContext context) : IPaymentRepository
 {
     private readonly TutoringDbContext _context = context;
 
-    public async Task<Enrollment?> GetEnrollmentWithStudentAsync(int enrollmentId, CancellationToken ct = default)
+    public async Task<Enrollment?> GetEnrollmentWithStudentAsync(int enrollmentId, int? instituteId, CancellationToken ct = default)
     {
-        return await _context.Enrollments
+        var query = _context.Enrollments
             .Include(e => e.Student)
             .Include(e => e.Course)
-            .FirstOrDefaultAsync(e => e.Id == enrollmentId, ct);
+            .AsQueryable();
+
+        if (instituteId.HasValue)
+            query = query.Where(e => e.Student!.InstituteId == instituteId.Value);
+
+        return await query.FirstOrDefaultAsync(e => e.Id == enrollmentId, ct);
     }
 
     public async Task<string> GenerateInvoiceNoAsync(CancellationToken ct = default)
@@ -67,7 +72,7 @@ public class PaymentRepository(TutoringDbContext context) : IPaymentRepository
     }
 
     public async Task<List<Payment>> GetPaymentsAsync(
-        DateTime? startDate, DateTime? endDate, string? method,
+        int? instituteId, DateTime? startDate, DateTime? endDate, string? method,
         int page, int limit, CancellationToken ct = default)
     {
         var query = _context.Payments
@@ -77,30 +82,36 @@ public class PaymentRepository(TutoringDbContext context) : IPaymentRepository
                 .ThenInclude(e => e.Course)
             .AsQueryable();
 
+        if (instituteId.HasValue)
+            query = query.Where(p => p.Enrollment!.Student!.InstituteId == instituteId.Value);
+
         if (startDate.HasValue)
-            query = query.Where(p => p.CreatedAt >= startDate.Value);
+            query = query.Where(p => p.PaidAt >= startDate.Value);
         if (endDate.HasValue)
-            query = query.Where(p => p.CreatedAt <= endDate.Value);
+            query = query.Where(p => p.PaidAt <= endDate.Value);
         if (!string.IsNullOrEmpty(method))
             query = query.Where(p => p.Method == method);
 
         return await query
-            .OrderByDescending(p => p.CreatedAt)
+            .OrderByDescending(p => p.PaidAt)
             .Skip((page - 1) * limit)
             .Take(limit)
             .ToListAsync(ct);
     }
 
     public async Task<decimal> GetTotalAmountAsync(
-        DateTime? startDate, DateTime? endDate, string? method,
+        int? instituteId, DateTime? startDate, DateTime? endDate, string? method,
         CancellationToken ct = default)
     {
         var query = _context.Payments.AsQueryable();
 
+        if (instituteId.HasValue)
+            query = query.Where(p => p.Enrollment!.Student!.InstituteId == instituteId.Value);
+
         if (startDate.HasValue)
-            query = query.Where(p => p.CreatedAt >= startDate.Value);
+            query = query.Where(p => p.PaidAt >= startDate.Value);
         if (endDate.HasValue)
-            query = query.Where(p => p.CreatedAt <= endDate.Value);
+            query = query.Where(p => p.PaidAt <= endDate.Value);
         if (!string.IsNullOrEmpty(method))
             query = query.Where(p => p.Method == method);
 
@@ -108,15 +119,18 @@ public class PaymentRepository(TutoringDbContext context) : IPaymentRepository
     }
 
     public async Task<int> GetPaymentCountAsync(
-        DateTime? startDate, DateTime? endDate, string? method,
+        int? instituteId, DateTime? startDate, DateTime? endDate, string? method,
         CancellationToken ct = default)
     {
         var query = _context.Payments.AsQueryable();
 
+        if (instituteId.HasValue)
+            query = query.Where(p => p.Enrollment!.Student!.InstituteId == instituteId.Value);
+
         if (startDate.HasValue)
-            query = query.Where(p => p.CreatedAt >= startDate.Value);
+            query = query.Where(p => p.PaidAt >= startDate.Value);
         if (endDate.HasValue)
-            query = query.Where(p => p.CreatedAt <= endDate.Value);
+            query = query.Where(p => p.PaidAt <= endDate.Value);
         if (!string.IsNullOrEmpty(method))
             query = query.Where(p => p.Method == method);
 

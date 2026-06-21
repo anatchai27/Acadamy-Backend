@@ -3,6 +3,7 @@ namespace academy_API.Models;
 public class User
 {
     public int Id { get; set; }
+    public int? InstituteId { get; set; }
     public string Email { get; set; } = null!;
     public string? Phone { get; set; }
     public UserRole Role { get; set; }
@@ -13,10 +14,11 @@ public class User
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
-    // Navigation Property
+    public Institute? Institute { get; set; }
     public Student? Student { get; set; }
     public Teacher? Teacher { get; set; }
 }
+
 public class UserCreateRequest
 {
     public string Email { get; set; } = null!;
@@ -27,8 +29,11 @@ public class UserCreateRequest
     public bool AcceptPdpa { get; set; }
     public string PdpaConsentVersion { get; set; } = "1.0";
 }
+
 public class RegisterUserRequest
 {
+    public InstituteInfo? Institute { get; set; }
+    public AdminInfo? Admin { get; set; }
     public string Email { get; set; } = null!;
     public string Password { get; set; } = null!;
     public string? Phone { get; set; }
@@ -38,3 +43,14 @@ public class RegisterUserRequest
     public string PdpaConsentVersion { get; set; } = "1.0";
 }
 
+public class InstituteInfo
+{
+    public string Name { get; set; } = null!;
+    public string? ContactPhone { get; set; }
+    public string? LogoBase64 { get; set; }
+}
+
+public class AdminInfo
+{
+    public string FullName { get; set; } = null!;
+}

@@ -55,7 +55,7 @@ public class StudentRepository(TutoringDbContext context) : IStudentRepository
             _context.Parents.Add(parent);
         }
 
-        pdpa.StudentId = student.Id;
+        pdpa.UserId = student.UserId;
         _context.PdpaConsents.Add(pdpa);
 
         await _context.SaveChangesAsync(ct);
@@ -64,7 +64,7 @@ public class StudentRepository(TutoringDbContext context) : IStudentRepository
         return student;
     }
 
-    public async Task<Student?> UpdateAsync(int id, UpdateStudentRequest request, CancellationToken ct = default)
+    public async Task<Student?> UpdateAsync(int id, int? instituteId, UpdateStudentRequest request, CancellationToken ct = default)
     {
         var student = await _context.Students
             .Include(s => s.Parents)
@@ -72,6 +72,9 @@ public class StudentRepository(TutoringDbContext context) : IStudentRepository
 
         if (student is null)
             return null;
+
+        if (instituteId.HasValue && student.InstituteId != instituteId.Value)
+            throw new InvalidOperationException("FORBIDDEN");
 
         if (request.Student is not null)
         {
@@ -112,13 +115,13 @@ public class StudentRepository(TutoringDbContext context) : IStudentRepository
         var random = Guid.NewGuid().ToString("N")[..8];
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         student.QrToken = $"tiwhub_{student.Id}_{random}_{timestamp}";
-        student.QrTokenExpiry = DateTime.UtcNow.AddSeconds(60);
 
         await _context.SaveChangesAsync(ct);
         return student;
     }
 
     public async Task<(List<StudentListItem> Items, int TotalCount)> SearchAsync(
+        int? instituteId,
         string? search,
         int page,
         int limit,
@@ -127,6 +130,9 @@ public class StudentRepository(TutoringDbContext context) : IStudentRepository
         var query = _context.Students
             .Include(s => s.Parents)
             .AsQueryable();
+
+        if (instituteId.HasValue)
+            query = query.Where(s => s.InstituteId == instituteId.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {

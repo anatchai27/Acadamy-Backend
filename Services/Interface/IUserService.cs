@@ -17,5 +17,5 @@ public interface IUserService
 
 public record UserLoginResult(string Token, int UserId, string Email, string Role);
 public record CurrentUserResponse(string Status, CurrentUserData Data);
-public record CurrentUserData(int UserId, string Email, string? Phone, string Role, CurrentUserProfile Profile);
+public record CurrentUserData(int UserId, string Email, string? Phone, string Role, int? InstituteId, CurrentUserProfile Profile);
 public record CurrentUserProfile(string FullName, string? PhotoUrl, string? Subjects);

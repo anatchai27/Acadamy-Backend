@@ -6,7 +6,7 @@ namespace academy_API.Repositories;
 
 public interface IEnrollmentRepository
 {
-    Task<Course?> GetCourseByIdAsync(int courseId, CancellationToken ct = default);
+    Task<Course?> GetCourseByIdAsync(int courseId, int? instituteId, CancellationToken ct = default);
     Task<bool> ExistsActiveEnrollmentAsync(int studentId, int courseId, CancellationToken ct = default);
     Task<Enrollment> CreateAsync(Enrollment enrollment, CancellationToken ct = default);
 }
@@ -15,9 +15,14 @@ public class EnrollmentRepository(TutoringDbContext context) : IEnrollmentReposi
 {
     private readonly TutoringDbContext _context = context;
 
-    public async Task<Course?> GetCourseByIdAsync(int courseId, CancellationToken ct = default)
+    public async Task<Course?> GetCourseByIdAsync(int courseId, int? instituteId, CancellationToken ct = default)
     {
-        return await _context.Courses.FirstOrDefaultAsync(c => c.Id == courseId, ct);
+        var query = _context.Courses.AsQueryable();
+
+        if (instituteId.HasValue)
+            query = query.Where(c => c.InstituteId == instituteId.Value);
+
+        return await query.FirstOrDefaultAsync(c => c.Id == courseId, ct);
     }
 
     public async Task<bool> ExistsActiveEnrollmentAsync(int studentId, int courseId, CancellationToken ct = default)

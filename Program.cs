@@ -116,6 +116,7 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 // Enable authentication and authorization middleware
 app.UseAuthentication();
+app.UseMiddleware<TenantMiddleware>();
 app.UseAuthorization();
 
 // Map endpoint groups

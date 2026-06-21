@@ -7,25 +7,28 @@ namespace academy_API.Repositories;
 
 public interface ICourseRepository
 {
-    Task<List<CourseItem>> SearchAsync(string? search, int? teacherId, CancellationToken ct = default);
+    Task<List<CourseItem>> SearchAsync(int? instituteId, string? search, int? teacherId, CancellationToken ct = default);
 }
 
 public class CourseRepository(TutoringDbContext context) : ICourseRepository
 {
     private readonly TutoringDbContext _context = context;
 
-    public async Task<List<CourseItem>> SearchAsync(string? search, int? teacherId, CancellationToken ct = default)
+    public async Task<List<CourseItem>> SearchAsync(int? instituteId, string? search, int? teacherId, CancellationToken ct = default)
     {
         var query = _context.Courses
             .Include(c => c.Teacher)
             .AsQueryable();
+
+        if (instituteId.HasValue)
+            query = query.Where(c => c.InstituteId == instituteId.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
             query = query.Where(c =>
                 c.Name.Contains(term) ||
-                (c.Subject != null && c.Subject.Contains(term)));
+                c.Subject.Contains(term));
         }
 
         if (teacherId.HasValue)

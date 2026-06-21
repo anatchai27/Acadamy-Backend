@@ -28,7 +28,7 @@ public class StudentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new StudentRepository(context);
-        var (items, total) = await repo.SearchAsync(null, 1, 20);
+        var (items, total) = await repo.SearchAsync(null, null, 1, 20);
 
         Assert.Equal(2, total);
         Assert.Equal(2, items.Count);
@@ -45,7 +45,7 @@ public class StudentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new StudentRepository(context);
-        var (items, total) = await repo.SearchAsync("สมชาย", 1, 20);
+        var (items, total) = await repo.SearchAsync(null, "สมชาย", 1, 20);
 
         Assert.Equal(1, total);
         Assert.Equal("สมชาย รักเรียน", items[0].FullName);
@@ -62,7 +62,7 @@ public class StudentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new StudentRepository(context);
-        var (items, total) = await repo.SearchAsync("105", 1, 20);
+        var (items, total) = await repo.SearchAsync(null, "105", 1, 20);
 
         Assert.Equal(1, total);
         Assert.Equal(105, items[0].Id);
@@ -80,7 +80,7 @@ public class StudentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new StudentRepository(context);
-        var (items, total) = await repo.SearchAsync("0812345678", 1, 20);
+        var (items, total) = await repo.SearchAsync(null, "0812345678", 1, 20);
 
         Assert.Equal(1, total);
         Assert.Equal("0812345678", items[0].PrimaryParentPhone);

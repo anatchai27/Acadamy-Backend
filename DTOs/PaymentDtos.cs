@@ -4,8 +4,7 @@ public record CreatePaymentRequest(
     int EnrollmentId,
     decimal Amount,
     string Method,
-    string? SlipUrl,
-    string? Note
+    string? SlipUrl
 );
 
 public record CreatePaymentResponse(

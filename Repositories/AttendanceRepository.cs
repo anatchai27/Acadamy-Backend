@@ -7,15 +7,15 @@ namespace academy_API.Repositories;
 
 public interface IAttendanceRepository
 {
-    Task<Student?> ValidateQrTokenAsync(string qrToken, CancellationToken ct = default);
-    Task<bool> IsDuplicateScanAsync(int studentId, int? sessionId, CancellationToken ct = default);
-    Task<Attendance?> GetExistingAttendanceAsync(int studentId, int? sessionId, CancellationToken ct = default);
-    Task<Attendance> RecordCheckinAsync(int studentId, int? sessionId, CancellationToken ct = default);
+    Task<Student?> ValidateQrTokenAsync(string qrToken, int? instituteId, CancellationToken ct = default);
+    Task<bool> IsDuplicateScanAsync(int studentId, int sessionId, CancellationToken ct = default);
+    Task<Attendance?> GetExistingAttendanceAsync(int studentId, int sessionId, CancellationToken ct = default);
+    Task<Attendance> RecordCheckinAsync(int studentId, int sessionId, CancellationToken ct = default);
     Task RecordCheckoutAsync(Attendance attendance, CancellationToken ct = default);
     Task<int> DecrementSessionsAsync(int studentId, CancellationToken ct = default);
-    Task<Attendance> RecordManualAsync(int sessionId, int studentId, string status, string? note, CancellationToken ct = default);
+    Task<Attendance> RecordManualAsync(int sessionId, int studentId, string status, CancellationToken ct = default);
     Task<Session?> GetSessionByIdAsync(int sessionId, CancellationToken ct = default);
-    Task<List<DailyAttendanceRow>> GetDailyAttendanceAsync(int? sessionId, DateTime date, CancellationToken ct = default);
+    Task<List<DailyAttendanceRow>> GetDailyAttendanceAsync(int? instituteId, int? sessionId, DateTime date, CancellationToken ct = default);
     Task<List<Parent>> GetParentsWithLineAsync(int studentId, CancellationToken ct = default);
 }
 
@@ -23,16 +23,17 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
 {
     private readonly TutoringDbContext _context = context;
 
-    public async Task<Student?> ValidateQrTokenAsync(string qrToken, CancellationToken ct = default)
+    public async Task<Student?> ValidateQrTokenAsync(string qrToken, int? instituteId, CancellationToken ct = default)
     {
-        return await _context.Students
-            .FirstOrDefaultAsync(s =>
-                s.QrToken == qrToken &&
-                s.QrTokenExpiry != null &&
-                s.QrTokenExpiry > DateTime.UtcNow, ct);
+        var query = _context.Students.AsQueryable();
+
+        if (instituteId.HasValue)
+            query = query.Where(s => s.InstituteId == instituteId.Value);
+
+        return await query.FirstOrDefaultAsync(s => s.QrToken == qrToken, ct);
     }
 
-    public async Task<bool> IsDuplicateScanAsync(int studentId, int? sessionId, CancellationToken ct = default)
+    public async Task<bool> IsDuplicateScanAsync(int studentId, int sessionId, CancellationToken ct = default)
     {
         return await _context.Attendances.AnyAsync(a =>
             a.StudentId == studentId &&
@@ -40,7 +41,7 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
             a.CheckinAt != null, ct);
     }
 
-    public async Task<Attendance?> GetExistingAttendanceAsync(int studentId, int? sessionId, CancellationToken ct = default)
+    public async Task<Attendance?> GetExistingAttendanceAsync(int studentId, int sessionId, CancellationToken ct = default)
     {
         return await _context.Attendances
             .FirstOrDefaultAsync(a =>
@@ -49,14 +50,13 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
                 a.CheckinAt != null, ct);
     }
 
-    public async Task<Attendance> RecordCheckinAsync(int studentId, int? sessionId, CancellationToken ct = default)
+    public async Task<Attendance> RecordCheckinAsync(int studentId, int sessionId, CancellationToken ct = default)
     {
         var attendance = new Attendance
         {
             StudentId = studentId,
             SessionId = sessionId,
-            CheckinAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow
+            CheckinAt = DateTime.UtcNow
         };
 
         _context.Attendances.Add(attendance);
@@ -83,15 +83,13 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
         return enrollment.SessionsRemaining;
     }
 
-    public async Task<Attendance> RecordManualAsync(int sessionId, int studentId, string status, string? note, CancellationToken ct = default)
+    public async Task<Attendance> RecordManualAsync(int sessionId, int studentId, string status, CancellationToken ct = default)
     {
         var attendance = new Attendance
         {
             StudentId = studentId,
             SessionId = sessionId,
-            Status = status,
-            Note = note?.Trim(),
-            CreatedAt = DateTime.UtcNow
+            Status = status
         };
 
         if (status == "present" || status == "late")
@@ -104,10 +102,12 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
 
     public async Task<Session?> GetSessionByIdAsync(int sessionId, CancellationToken ct = default)
     {
-        return await _context.Sessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct);
+        return await _context.Sessions
+            .Include(s => s.Course)
+            .FirstOrDefaultAsync(s => s.Id == sessionId, ct);
     }
 
-    public async Task<List<DailyAttendanceRow>> GetDailyAttendanceAsync(int? sessionId, DateTime date, CancellationToken ct = default)
+    public async Task<List<DailyAttendanceRow>> GetDailyAttendanceAsync(int? instituteId, int? sessionId, DateTime date, CancellationToken ct = default)
     {
         var startOfDay = date.Date;
         var endOfDay = startOfDay.AddDays(1);
@@ -117,8 +117,16 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
             .Include(e => e.Course)
             .AsQueryable();
 
+        if (instituteId.HasValue)
+            enrollmentQuery = enrollmentQuery.Where(e => e.Student!.InstituteId == instituteId.Value);
+
         if (sessionId.HasValue)
-            enrollmentQuery = enrollmentQuery.Where(e => e.CourseId == sessionId.Value);
+        {
+            var session = await _context.Sessions
+                .FirstOrDefaultAsync(s => s.Id == sessionId.Value, ct);
+            if (session != null)
+                enrollmentQuery = enrollmentQuery.Where(e => e.CourseId == session.CourseId);
+        }
 
         var enrolled = await enrollmentQuery
             .Select(e => e.Student)
@@ -127,8 +135,8 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
 
         var attendanceMap = await _context.Attendances
             .Where(a =>
-                a.CreatedAt >= startOfDay &&
-                a.CreatedAt < endOfDay &&
+                a.CheckinAt >= startOfDay &&
+                a.CheckinAt < endOfDay &&
                 (sessionId == null || a.SessionId == sessionId))
             .ToListAsync(ct);
 
@@ -144,7 +152,7 @@ public class AttendanceRepository(TutoringDbContext context) : IAttendanceReposi
                 status,
                 record?.CheckinAt,
                 record?.CheckoutAt,
-                null
+                record?.PickedUpBy
             );
         }).ToList();
     }

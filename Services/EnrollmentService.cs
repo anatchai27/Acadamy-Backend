@@ -4,16 +4,16 @@ namespace academy_API.Services;
 
 public interface IEnrollmentService
 {
-    Task<EnrollStudentResponse> EnrollAsync(EnrollStudentRequest request, CancellationToken ct = default);
+    Task<EnrollStudentResponse> EnrollAsync(EnrollStudentRequest request, int? instituteId, CancellationToken ct = default);
 }
 
 public class EnrollmentService(Repositories.IEnrollmentRepository repository) : IEnrollmentService
 {
     private readonly Repositories.IEnrollmentRepository _repository = repository;
 
-    public async Task<EnrollStudentResponse> EnrollAsync(EnrollStudentRequest request, CancellationToken ct = default)
+    public async Task<EnrollStudentResponse> EnrollAsync(EnrollStudentRequest request, int? instituteId, CancellationToken ct = default)
     {
-        var course = await _repository.GetCourseByIdAsync(request.CourseId, ct);
+        var course = await _repository.GetCourseByIdAsync(request.CourseId, instituteId, ct);
         if (course is null)
             throw new EnrollmentValidationException("COURSE_NOT_FOUND", "ไม่พบคอร์สเรียนที่ระบุ");
 
@@ -27,7 +27,6 @@ public class EnrollmentService(Repositories.IEnrollmentRepository repository) : 
             CourseId = request.CourseId,
             SessionsRemaining = course.TotalSessions,
             PaidAmount = 0,
-            Status = "active",
             ExpiresAt = DateTime.UtcNow.AddMonths(6),
             CreatedAt = DateTime.UtcNow
         };

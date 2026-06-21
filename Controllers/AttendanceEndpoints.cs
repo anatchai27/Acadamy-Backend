@@ -1,5 +1,6 @@
 using academy_API.DTOs;
 using academy_API.Services;
+using academy_API.Utilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace academy_API.Controllers;
@@ -10,17 +11,20 @@ public static class AttendanceEndpoints
     {
         var group = app.MapGroup("/api/attendance")
             .WithTags("Attendance")
-            .WithOpenApi();
+            .WithOpenApi()
+            .RequireAuthorization();
 
         group.MapGet("/daily", async (
             IAttendanceService service,
+            HttpContext httpContext,
             int? session_id,
             string? date,
             CancellationToken ct) =>
         {
             try
             {
-                var result = await service.GetDailyAsync(session_id, date, ct);
+                var instituteId = httpContext.GetInstituteId();
+                var result = await service.GetDailyAsync(instituteId, session_id, date, ct);
                 return Results.Ok(result);
             }
             catch (AttendanceValidationException ex)
@@ -36,11 +40,13 @@ public static class AttendanceEndpoints
         group.MapPost("/scan", async (
             ScanAttendanceRequest request,
             IAttendanceService service,
+            HttpContext httpContext,
             CancellationToken ct) =>
         {
             try
             {
-                var result = await service.ScanAsync(request, ct);
+                var instituteId = httpContext.GetInstituteId();
+                var result = await service.ScanAsync(request, instituteId, ct);
                 return Results.Ok(result);
             }
             catch (AttendanceValidationException ex)
@@ -60,11 +66,13 @@ public static class AttendanceEndpoints
         group.MapPost("/manual", async (
             ManualAttendanceRequest request,
             IAttendanceService service,
+            HttpContext httpContext,
             CancellationToken ct) =>
         {
             try
             {
-                var result = await service.ManualAsync(request, ct);
+                var instituteId = httpContext.GetInstituteId();
+                var result = await service.ManualAsync(request, instituteId, ct);
                 return Results.Ok(result);
             }
             catch (AttendanceValidationException ex)

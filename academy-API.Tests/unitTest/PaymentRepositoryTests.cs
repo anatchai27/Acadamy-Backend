@@ -18,7 +18,7 @@ public class PaymentRepositoryTests
     private static async Task SeedEnrollmentAsync(TutoringDbContext context, int enrollmentId, string studentName, string courseName)
     {
         var student = new Student { Id = enrollmentId, FullName = studentName, CreatedAt = DateTime.UtcNow };
-        var course = new Course { Id = enrollmentId, Name = courseName, TotalSessions = 10, Price = 5000 };
+        var course = new Course { Id = enrollmentId, Name = courseName, Subject = "", TotalSessions = 10, Price = 5000 };
         var enrollment = new Enrollment
         {
             Id = enrollmentId,
@@ -36,16 +36,17 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
     }
 
-    private static Payment MakePayment(decimal amount, string method, DateTime createdAt,
+    private static Payment MakePayment(decimal amount, string method, DateTime paidAt,
         int enrollmentId, string? invoiceNo = null)
     {
         return new Payment
         {
             EnrollmentId = enrollmentId,
-            InvoiceNo = invoiceNo ?? $"INV-{createdAt:yyyyMM}-{Guid.NewGuid().ToString()[..4]}",
+            InvoiceNo = invoiceNo ?? $"INV-{paidAt:yyyyMM}-{Guid.NewGuid().ToString()[..4]}",
             Amount = amount,
             Method = method,
-            CreatedAt = createdAt
+            PaidAt = paidAt,
+            CreatedAt = paidAt
         };
     }
 
@@ -65,7 +66,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(null, null, null, 1, 20);
+        var result = await repo.GetPaymentsAsync(null, null, null, null, 1, 20);
 
         Assert.Equal(3, result.Count);
         Assert.Equal(3000m, result[0].Amount);
@@ -86,7 +87,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(
+        var result = await repo.GetPaymentsAsync(null,
             new DateTime(2026, 6, 14, 0, 0, 0, DateTimeKind.Utc), null, null, 1, 20);
 
         Assert.Single(result);
@@ -106,7 +107,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(
+        var result = await repo.GetPaymentsAsync(null,
             null, new DateTime(2026, 6, 10, 0, 0, 0, DateTimeKind.Utc), null, 1, 20);
 
         Assert.Single(result);
@@ -128,7 +129,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(
+        var result = await repo.GetPaymentsAsync(null,
             new DateTime(2026, 6, 10, 0, 0, 0, DateTimeKind.Utc),
             new DateTime(2026, 6, 15, 0, 0, 0, DateTimeKind.Utc),
             null, 1, 20);
@@ -152,7 +153,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(null, null, "cash", 1, 20);
+        var result = await repo.GetPaymentsAsync(null, null, null, "cash", 1, 20);
 
         Assert.Equal(2, result.Count);
         Assert.All(result, p => Assert.Equal("cash", p.Method));
@@ -172,7 +173,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(
+        var result = await repo.GetPaymentsAsync(null,
             new DateTime(2026, 6, 12),
             new DateTime(2026, 6, 14),
             "transfer", 1, 20);
@@ -197,7 +198,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(null, null, null, 1, 2);
+        var result = await repo.GetPaymentsAsync(null, null, null, null, 1, 2);
 
         Assert.Equal(2, result.Count);
         Assert.Equal(4000m, result[0].Amount);
@@ -219,7 +220,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(null, null, null, 2, 2);
+        var result = await repo.GetPaymentsAsync(null, null, null, null, 2, 2);
 
         Assert.Equal(2, result.Count);
         Assert.Equal(2000m, result[0].Amount);
@@ -234,7 +235,7 @@ public class PaymentRepositoryTests
         await using var context = CreateInMemoryDbContext(dbName);
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(null, null, null, 1, 20);
+        var result = await repo.GetPaymentsAsync(null, null, null, null, 1, 20);
 
         Assert.Empty(result);
     }
@@ -251,7 +252,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var result = await repo.GetPaymentsAsync(null, null, null, 1, 20);
+        var result = await repo.GetPaymentsAsync(null, null, null, null, 1, 20);
 
         Assert.Single(result);
         Assert.Equal("ด.ช. สมชาย รักเรียน", result[0].Enrollment?.Student?.FullName);
@@ -273,7 +274,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var total = await repo.GetTotalAmountAsync(null, null, null);
+        var total = await repo.GetTotalAmountAsync(null, null, null, null);
 
         Assert.Equal(4350.75m, total);
     }
@@ -291,8 +292,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var total = await repo.GetTotalAmountAsync(
-            new DateTime(2026, 6, 10), new DateTime(2026, 6, 20), null);
+        var total = await repo.GetTotalAmountAsync(null, new DateTime(2026, 6, 10), new DateTime(2026, 6, 20), null);
 
         Assert.Equal(5000m, total);
     }
@@ -310,7 +310,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var total = await repo.GetTotalAmountAsync(null, null, "cash");
+        var total = await repo.GetTotalAmountAsync(null, null, null, "cash");
 
         Assert.Equal(4000m, total);
     }
@@ -323,7 +323,7 @@ public class PaymentRepositoryTests
         await using var context = CreateInMemoryDbContext(dbName);
 
         var repo = new PaymentRepository(context);
-        var total = await repo.GetTotalAmountAsync(null, null, null);
+        var total = await repo.GetTotalAmountAsync(null, null, null, null);
 
         Assert.Equal(0m, total);
     }
@@ -343,7 +343,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var count = await repo.GetPaymentCountAsync(null, null, null);
+        var count = await repo.GetPaymentCountAsync(null, null, null, null);
 
         Assert.Equal(3, count);
     }
@@ -361,8 +361,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var count = await repo.GetPaymentCountAsync(
-            new DateTime(2026, 6, 5), new DateTime(2026, 6, 10), null);
+        var count = await repo.GetPaymentCountAsync(null, new DateTime(2026, 6, 5), new DateTime(2026, 6, 10), null);
 
         Assert.Equal(2, count);
     }
@@ -381,7 +380,7 @@ public class PaymentRepositoryTests
         await context.SaveChangesAsync();
 
         var repo = new PaymentRepository(context);
-        var count = await repo.GetPaymentCountAsync(null, null, "transfer");
+        var count = await repo.GetPaymentCountAsync(null, null, null, "transfer");
 
         Assert.Equal(2, count);
     }
@@ -394,7 +393,7 @@ public class PaymentRepositoryTests
         await using var context = CreateInMemoryDbContext(dbName);
 
         var repo = new PaymentRepository(context);
-        var count = await repo.GetPaymentCountAsync(null, null, null);
+        var count = await repo.GetPaymentCountAsync(null, null, null, null);
 
         Assert.Equal(0, count);
     }

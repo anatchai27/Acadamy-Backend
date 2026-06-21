@@ -1,15 +1,15 @@
 namespace academy_API.Models;
 
-public class Enrollment
+public class MakeupCredit
 {
     public int Id { get; set; }
     public int StudentId { get; set; }
     public int CourseId { get; set; }
-    public int SessionsRemaining { get; set; }
-    public decimal PaidAmount { get; set; }
+    public DateTime? GrantedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public int? UsedSessionId { get; set; }
 
     public Student Student { get; set; } = null!;
     public Course Course { get; set; } = null!;
+    public Session? UsedSession { get; set; }
 }

@@ -2,7 +2,7 @@ namespace academy_API.DTOs;
 
 public record ScanAttendanceRequest(
     string QrToken,
-    int? SessionId
+    int SessionId
 );
 
 public record ScanAttendanceResponse(
@@ -28,8 +28,7 @@ public record AttendanceErrorResponse(
 public record ManualAttendanceRequest(
     int SessionId,
     int StudentId,
-    string Status,
-    string? Note
+    string Status
 );
 
 public record ManualAttendanceResponse(

@@ -125,7 +125,8 @@ public class UserService(
             Token: token,
             UserId: user.Id,
             Email: user.Email,
-            Role: user.Role.ToString()
+            Role: user.Role.ToString(),
+            InstituteId: user.InstituteId
         );
     }
 

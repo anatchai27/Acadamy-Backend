@@ -2,7 +2,10 @@ using academy_API.Data;
 using academy_API.Models;
 using academy_API.Services.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 
 namespace academy_API.Controllers;
 
@@ -14,7 +17,7 @@ public static class AuthEndpoints
             .WithTags("Authentication")
             .WithOpenApi();
 
-        group.MapPost("/login", async (LoginRequest request, IUserService userService, CancellationToken ct) =>
+        group.MapPost("/login", async (LoginRequest request, IUserService userService, ITokenService tokenService, CancellationToken ct) =>
         {
             var result = await userService.LoginAsync(request.Email, request.Password, ct);
 
@@ -23,7 +26,15 @@ public static class AuthEndpoints
                 return Results.Unauthorized();
             }
 
-            return Results.Ok(new LoginResponse(result.Token, result.UserId, result.Email, result.Role));
+            var refreshToken = tokenService.GenerateRefreshToken(new User
+            {
+                Id = result.UserId,
+                Email = result.Email,
+                Role = Enum.Parse<UserRole>(result.Role),
+                InstituteId = result.InstituteId
+            });
+
+            return Results.Ok(new LoginResponse(result.Token, result.UserId, result.Email, result.Role, refreshToken, result.InstituteId));
         });
 
         group.MapPost("/register-institute", RegisterInstitute)
@@ -46,6 +57,90 @@ public static class AuthEndpoints
         {
             return Results.Ok(new { status = "success", message = "ออกจากระบบสำเร็จ" });
         }).RequireAuthorization();
+
+        group.MapPost("/refresh-token", async (
+            RefreshTokenRequest request,
+            ITokenService tokenService,
+            TutoringDbContext db,
+            IConfiguration config,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Token))
+                return Results.BadRequest(new { status = "error", error_code = "MISSING_TOKEN", message = "Token is required." });
+
+            var jwtKey = config["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured.");
+            var jwtIssuer = config["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured.");
+            var jwtAudience = config["Jwt:Audience"] ?? throw new InvalidOperationException("JWT Audience not configured.");
+
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var principal = tokenHandler.ValidateToken(request.Token, new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = false,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = jwtIssuer,
+                    ValidAudience = jwtAudience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+                }, out var validatedToken);
+
+                if (validatedToken is not JwtSecurityToken jwtToken ||
+                    !jwtToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    return Results.Unauthorized();
+                }
+
+                var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                    return Results.Unauthorized();
+
+                var user = await db.Users
+                    .Include(u => u.Institute)
+                    .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+                if (user is null)
+                    return Results.Unauthorized();
+
+                // Check institute is not suspended
+                if (user.InstituteId.HasValue)
+                {
+                    var institute = await db.Institutes.FirstOrDefaultAsync(i => i.Id == user.InstituteId.Value, ct);
+                    if (institute is null || !institute.IsActive)
+                        return Results.Json(new { status = "error", error_code = "INSTITUTE_SUSPENDED", message = "สถาบันถูกระงับการใช้งาน" }, statusCode: 403);
+                }
+
+                var refreshResult = tokenService.ValidateAndRefresh(request.Token, user);
+                if (refreshResult is null)
+                    return Results.Unauthorized();
+
+                var refreshToken = tokenService.GenerateRefreshToken(user);
+
+                return Results.Ok(new
+                {
+                    status = "success",
+                    message = "ต่ออายุ Token สำเร็จ",
+                    token = refreshResult.Value.Token,
+                    refreshToken,
+                    user = new
+                    {
+                        id = user.Id,
+                        email = user.Email,
+                        role = user.Role.ToString(),
+                        instituteId = user.InstituteId
+                    }
+                });
+            }
+            catch (SecurityTokenException)
+            {
+                return Results.Unauthorized();
+            }
+            catch
+            {
+                return Results.Unauthorized();
+            }
+        }).AllowAnonymous();
 
         return app;
     }
@@ -165,4 +260,5 @@ public static class AuthEndpoints
 }
 
 public record LoginRequest(string Email, string Password);
-public record LoginResponse(string Token, int UserId, string Email, string Role);
+public record LoginResponse(string Token, int UserId, string Email, string Role, string RefreshToken, int? InstituteId);
+public record RefreshTokenRequest(string Token);

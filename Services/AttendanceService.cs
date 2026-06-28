@@ -27,12 +27,9 @@ public class AttendanceService(
         if (isDuplicate)
             throw new AttendanceValidationException("DUPLICATE_SCAN", "นักเรียนได้ทำการเช็คชื่อในคลาสนี้ไปแล้ว");
 
-        var checkin = await _repository.RecordCheckinAsync(student.Id, request.SessionId, ct);
+        await _repository.ScanCheckinWithTransactionAsync(student.Id, request.SessionId, ct);
 
-        var sessionsRemaining = await _repository.DecrementSessionsAsync(student.Id, ct);
-
-        var checkinTime = checkin.CheckinAt!.Value.ToString("HH:mm:ss");
-
+        var sessionsRemaining = 0;
         _ = Task.Run(async () =>
         {
             try
@@ -43,32 +40,16 @@ public class AttendanceService(
                     if (!string.IsNullOrEmpty(parent.LineUserId))
                     {
                         await _lineService.SendAttendanceNotificationAsync(
-                            parent.LineUserId,
-                            student.FullName,
-                            parent.FullName,
-                            checkinTime,
-                            "present",
-                            CancellationToken.None);
+                            parent.LineUserId, student.FullName, parent.FullName,
+                            DateTime.UtcNow.ToString("HH:mm:ss"), "present", CancellationToken.None);
                     }
                 }
             }
-            catch
-            {
-                // Fire-and-forget: silently fail
-            }
+            catch { }
         });
 
-        return new ScanAttendanceResponse(
-            "success",
-            "เช็คชื่อเข้าเรียนสำเร็จ",
-            new ScanAttendanceData(
-                student.Id,
-                student.FullName,
-                "present",
-                checkin.CheckinAt!.Value,
-                sessionsRemaining
-            )
-        );
+        return new ScanAttendanceResponse("success", "เช็คชื่อเข้าเรียนสำเร็จ",
+            new ScanAttendanceData(student.Id, student.FullName, "present", DateTime.UtcNow, sessionsRemaining));
     }
 
     public async Task<ManualAttendanceResponse> ManualAsync(ManualAttendanceRequest request, int? instituteId, CancellationToken ct = default)
@@ -81,19 +62,10 @@ public class AttendanceService(
         if (isDuplicate)
             throw new AttendanceValidationException("DUPLICATE_SCAN", "นักเรียนได้ทำการเช็คชื่อในคลาสนี้ไปแล้ว");
 
-        var attendance = await _repository.RecordManualAsync(
-            request.SessionId, request.StudentId, request.Status, ct);
+        await _repository.ManualCheckinWithTransactionAsync(request.StudentId, request.SessionId, request.Status, ct);
 
-        if (request.Status == "present" || request.Status == "late")
-        {
-            await _repository.DecrementSessionsAsync(request.StudentId, ct);
-        }
-
-        return new ManualAttendanceResponse(
-            "success",
-            "บันทึกสถานะการเข้าเรียนสำเร็จ",
-            new ManualAttendanceData(attendance.Id, request.Status)
-        );
+        return new ManualAttendanceResponse("success", "บันทึกสถานะการเข้าเรียนสำเร็จ",
+            new ManualAttendanceData(0, request.Status));
     }
 
     public async Task<DailyAttendanceResponse> GetDailyAsync(int? instituteId, int? sessionId, string? date, CancellationToken ct = default)
@@ -108,26 +80,19 @@ public class AttendanceService(
         {
             var session = await _repository.GetSessionByIdAsync(sessionId.Value, ct);
             if (session is not null)
-            {
                 sessionInfo = new DailySessionInfo(session.Id, session.Course.Name, session.ScheduledAt);
-            }
         }
 
         var rows = await _repository.GetDailyAttendanceAsync(instituteId, sessionId, parsedDate, ct);
 
-        return new DailyAttendanceResponse(
-            "success",
-            new DailyAttendanceData(sessionInfo, rows)
-        );
+        return new DailyAttendanceResponse("success", new DailyAttendanceData(sessionInfo, rows));
     }
 }
 
 public class AttendanceValidationException : Exception
 {
     public string ErrorCode { get; }
-
-    public AttendanceValidationException(string errorCode, string message)
-        : base(message)
+    public AttendanceValidationException(string errorCode, string message) : base(message)
     {
         ErrorCode = errorCode;
     }

@@ -1,6 +1,5 @@
 using academy_API.DTOs;
-using academy_API.Data;
-using academy_API.Models;
+using academy_API.Services;
 using academy_API.Utilities;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +15,7 @@ public static class CourseEndpoints
             .RequireAuthorization();
 
         group.MapGet("/", async (
-            Services.ICourseService service,
+            ICourseService service,
             HttpContext httpContext,
             string? search,
             int? teacher_id,
@@ -29,60 +28,79 @@ public static class CourseEndpoints
 
         group.MapGet("/{id:int}", async (
             int id,
+            ICourseService service,
             HttpContext httpContext,
-            TutoringDbContext db,
             CancellationToken ct) =>
         {
             var instituteId = httpContext.GetInstituteId();
-            var course = await db.Courses
-                .Include(c => c.Teacher)
-                .FirstOrDefaultAsync(c => c.Id == id && c.InstituteId == instituteId, ct);
+            var course = await service.GetByIdAsync(id, instituteId, ct);
             return course is null
                 ? Results.NotFound(new { Status = "error", Message = "ไม่พบคอร์สเรียน" })
-                : Results.Ok(course);
+                : Results.Ok(new
+                {
+                    course.Id,
+                    course.InstituteId,
+                    course.Name,
+                    course.Subject,
+                    course.TotalSessions,
+                    course.Price,
+                    course.TeacherId,
+                    course.CreatedAt,
+                    TeacherName = course.Teacher?.FullName
+                });
         });
 
         group.MapPost("/", async (
-            Course request,
+            CreateCourseRequest request,
+            ICourseService service,
             HttpContext httpContext,
-            TutoringDbContext db,
             CancellationToken ct) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
-                return Results.BadRequest(new { Error = "Name is required." });
-
-            var instituteId = httpContext.GetInstituteId();
-            request.InstituteId = instituteId;
-            request.CreatedAt = DateTime.UtcNow;
-
-            db.Courses.Add(request);
-            await db.SaveChangesAsync(ct);
-
-            return Results.Created($"/api/courses/{request.Id}", request);
+            try
+            {
+                var instituteId = httpContext.GetInstituteId();
+                var result = await service.CreateAsync(request, instituteId, ct);
+                return Results.Created($"/api/courses/{result.Data.CourseId}", result);
+            }
+            catch (CourseValidationException ex)
+            {
+                return Results.BadRequest(new { Status = "error", ErrorCode = ex.ErrorCode, Message = ex.Message });
+            }
+            catch (DbUpdateException)
+            {
+                return Results.Problem("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง", statusCode: 500);
+            }
         });
 
         group.MapPut("/{id:int}", async (
             int id,
-            Course request,
+            UpdateCourseRequest request,
+            ICourseService service,
             HttpContext httpContext,
-            TutoringDbContext db,
             CancellationToken ct) =>
         {
-            var instituteId = httpContext.GetInstituteId();
-            var course = await db.Courses
-                .FirstOrDefaultAsync(c => c.Id == id && c.InstituteId == instituteId, ct);
-
-            if (course is null)
-                return Results.NotFound(new { Error = "Course not found." });
-
-            course.Name = request.Name ?? course.Name;
-            course.Subject = request.Subject ?? course.Subject;
-            course.TotalSessions = request.TotalSessions;
-            course.Price = request.Price;
-            course.TeacherId = request.TeacherId ?? course.TeacherId;
-
-            await db.SaveChangesAsync(ct);
-            return Results.Ok(course);
+            try
+            {
+                var instituteId = httpContext.GetInstituteId();
+                var result = await service.UpdateAsync(id, request, instituteId, ct);
+                return Results.Ok(result);
+            }
+            catch (CourseValidationException ex) when (ex.ErrorCode == "NOT_FOUND")
+            {
+                return Results.NotFound(new { Status = "error", ErrorCode = ex.ErrorCode, Message = ex.Message });
+            }
+            catch (CourseValidationException ex) when (ex.ErrorCode == "FORBIDDEN")
+            {
+                return Results.Json(new { Status = "error", ErrorCode = ex.ErrorCode, Message = ex.Message }, statusCode: 403);
+            }
+            catch (CourseValidationException ex)
+            {
+                return Results.BadRequest(new { Status = "error", ErrorCode = ex.ErrorCode, Message = ex.Message });
+            }
+            catch (DbUpdateException)
+            {
+                return Results.Problem("เกิดข้อผิดพลาดในการอัปเดตข้อมูล กรุณาลองใหม่อีกครั้ง", statusCode: 500);
+            }
         });
 
         return app;

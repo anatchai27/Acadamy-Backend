@@ -166,7 +166,10 @@ public static class AuthEndpoints
 
         try
         {
-            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            var strategy = db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 // 1. Create Institute
                 var institute = new Institute
@@ -251,6 +254,7 @@ public static class AuthEndpoints
                         instituteName = institute.Name
                     }
                 });
+            });
         }
         catch (Exception)
         {

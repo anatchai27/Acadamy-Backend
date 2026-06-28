@@ -44,24 +44,27 @@ public class StudentRepository(TutoringDbContext context) : IStudentRepository
         PdpaConsent pdpa,
         CancellationToken ct = default)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(ct);
-
-        _context.Students.Add(student);
-        await _context.SaveChangesAsync(ct);
-
-        foreach (var parent in parents)
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            parent.StudentId = student.Id;
-            _context.Parents.Add(parent);
-        }
+            await using var transaction = await _context.Database.BeginTransactionAsync(ct);
 
-        pdpa.UserId = student.UserId;
-        _context.PdpaConsents.Add(pdpa);
+            _context.Students.Add(student);
+            await _context.SaveChangesAsync(ct);
 
-        await _context.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+            foreach (var parent in parents)
+            {
+                parent.StudentId = student.Id;
+                _context.Parents.Add(parent);
+            }
 
-        return student;
+            _context.PdpaConsents.Add(pdpa);
+
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+
+            return student;
+        });
     }
 
     public async Task<Student?> UpdateAsync(int id, int? instituteId, UpdateStudentRequest request, CancellationToken ct = default)

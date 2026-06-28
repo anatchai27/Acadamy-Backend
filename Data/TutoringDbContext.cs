@@ -69,7 +69,7 @@ public class TutoringDbContext : DbContext
             entity.Property(e => e.PasswordHash).HasMaxLength(500).HasColumnName("password_hash");
             entity.Property(e => e.ResetToken).HasMaxLength(255).HasColumnName("reset_token");
             entity.Property(e => e.ResetTokenExpiry).HasColumnName("reset_token_expiry");
-            entity.Property(e => e.Role).HasColumnName("role").HasConversion<string>();
+            entity.Property(e => e.Role).HasMaxLength(20).HasColumnName("role").HasConversion<string>();
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
         });
@@ -102,8 +102,8 @@ public class TutoringDbContext : DbContext
             entity.Property(s => s.Grade).HasMaxLength(50).HasColumnName("grade");
             entity.Property(s => s.School).HasMaxLength(255).HasColumnName("school");
             entity.Property(s => s.QrToken).HasMaxLength(255).HasColumnName("qr_token");
-            entity.Property(s => s.PhotoUrl).HasMaxLength(1000).HasColumnName("photo_url");
-            entity.Property(s => s.MedicalInfo).HasMaxLength(2000).HasColumnName("medical_info");
+            entity.Property(s => s.PhotoUrl).HasMaxLength(255).HasColumnName("photo_url");
+            entity.Property(s => s.MedicalInfo).HasColumnType("text").HasColumnName("medical_info");
             entity.Property(s => s.CreatedAt).HasColumnName("created_at");
         });
 

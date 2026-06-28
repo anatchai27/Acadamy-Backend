@@ -56,19 +56,23 @@ public class PaymentRepository(TutoringDbContext context) : IPaymentRepository
     public async Task<Payment> CreatePaymentWithTransactionAsync(
         Payment payment, CancellationToken ct = default)
     {
-        await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(ct);
 
-        _context.Payments.Add(payment);
-        await _context.SaveChangesAsync(ct);
+            _context.Payments.Add(payment);
+            await _context.SaveChangesAsync(ct);
 
-        var enrollment = await _context.Enrollments
-            .FirstAsync(e => e.Id == payment.EnrollmentId, ct);
-        enrollment.PaidAmount += payment.Amount;
+            var enrollment = await _context.Enrollments
+                .FirstAsync(e => e.Id == payment.EnrollmentId, ct);
+            enrollment.PaidAmount += payment.Amount;
 
-        await _context.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
 
-        return payment;
+            return payment;
+        });
     }
 
     public async Task<List<Payment>> GetPaymentsAsync(

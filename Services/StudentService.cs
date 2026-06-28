@@ -81,35 +81,9 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
     {
         ValidateRequest(request);
 
-        var student = new Student
-        {
-            InstituteId = instituteId,
-            FullName = request.Student.FullName.Trim(),
-            Nickname = request.Student.Nickname?.Trim(),
-            Grade = request.Student.Grade?.Trim(),
-            School = request.Student.School?.Trim(),
-            PhotoUrl = request.Student.PhotoUrl?.Trim(),
-            MedicalInfo = request.Student.MedicalInfo?.Trim(),
-            QrToken = Guid.NewGuid().ToString("N"),
-            CreatedAt = DateTime.UtcNow
-        };
-
-        var parents = request.Parents.Select(p => new Parent
-        {
-            FullName = p.FullName.Trim(),
-            Phone = p.Phone?.Trim(),
-            Relationship = p.Relationship?.Trim()
-        }).ToList();
-
-        var pdpa = new PdpaConsent
-        {
-            ConsentVersion = string.IsNullOrWhiteSpace(request.Pdpa.ConsentVersion)
-                ? "1.0"
-                : request.Pdpa.ConsentVersion,
-            IsAccepted = request.Pdpa.IsAccepted,
-            IpAddress = ipAddress,
-            AcceptedAt = DateTime.UtcNow
-        };
+        var student = BuildStudent(request, instituteId);
+        var parents = BuildParents(request);
+        var pdpa = BuildPdpaConsent(request, ipAddress);
 
         var created = await _studentRepository.CreateWithTransactionAsync(student, parents, pdpa, ct);
 
@@ -122,6 +96,45 @@ public class StudentService(IStudentRepository studentRepository) : IStudentServ
                 DateTime.UtcNow
             )
         );
+    }
+
+    private static Student BuildStudent(CreateStudentRequest request, int? instituteId)
+    {
+        return new Student
+        {
+            InstituteId = instituteId,
+            FullName = request.Student.FullName.Trim(),
+            Nickname = request.Student.Nickname?.Trim(),
+            Grade = request.Student.Grade?.Trim(),
+            School = request.Student.School?.Trim(),
+            PhotoUrl = request.Student.PhotoUrl?.Trim(),
+            MedicalInfo = request.Student.MedicalInfo?.Trim(),
+            QrToken = Guid.NewGuid().ToString("N"),
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static List<Parent> BuildParents(CreateStudentRequest request)
+    {
+        return request.Parents.Select(p => new Parent
+        {
+            FullName = p.FullName.Trim(),
+            Phone = p.Phone?.Trim(),
+            Relationship = p.Relationship?.Trim()
+        }).ToList();
+    }
+
+    private static PdpaConsent BuildPdpaConsent(CreateStudentRequest request, string? ipAddress)
+    {
+        return new PdpaConsent
+        {
+            ConsentVersion = string.IsNullOrWhiteSpace(request.Pdpa.ConsentVersion)
+                ? "1.0"
+                : request.Pdpa.ConsentVersion,
+            IsAccepted = request.Pdpa.IsAccepted,
+            IpAddress = ipAddress,
+            AcceptedAt = DateTime.UtcNow
+        };
     }
 
     private static void ValidateRequest(CreateStudentRequest request)

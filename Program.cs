@@ -74,6 +74,14 @@ builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
 builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ISessionRepository, SessionRepository>();
+builder.Services.AddScoped<ISessionService, SessionService>();
+builder.Services.AddScoped<ILeaveRequestRepository, LeaveRequestRepository>();
+builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
+builder.Services.AddScoped<IHomeworkRepository, HomeworkRepository>();
+builder.Services.AddScoped<IHomeworkService, HomeworkService>();
+builder.Services.AddScoped<ISkillScoreRepository, SkillScoreRepository>();
+builder.Services.AddScoped<ISkillScoreService, SkillScoreService>();
 
 builder.Services.AddHttpClient<ILineNotificationService, LineNotificationService>(client =>
 {
@@ -127,8 +135,12 @@ app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapAttendanceEndpoints();
 app.MapCourseEndpoints();
+app.MapSessionEndpoints();
 app.MapEnrollmentEndpoints();
 app.MapPaymentEndpoints();
+app.MapLeaveRequestEndpoints();
+app.MapHomeworkEndpoints();
+app.MapSkillScoreEndpoints();
 
 // Database connection test endpoint
 app.MapGet("/api/v1/test-connection", (IDbConnectionValidator validator) =>
